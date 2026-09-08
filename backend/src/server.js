@@ -13,9 +13,99 @@ const PUERTO = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+function normalizarIngrediente(nombre) {
+  return String(nombre || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s*[,;] \s*/g, ", ");
+}
+
+function obtenerIngredientesDeReceta(recetaId) {
+  const filas = db
+    .prepare(`
+      SELECT i.nombre
+      FROM receta_ingredientes ri
+      INNER JOIN ingredientes i ON i.id = ri.ingrediente_id
+      WHERE ri.receta_id = ?
+      ORDER BY ri.orden ASC, i.nombre ASC
+    `)
+    .all(recetaId);
+
+  if (filas.length > 0) {
+    return filas.map((fila) => fila.nombre);
+  }
+
+  const receta = db
+    .prepare("SELECT ingredientes FROM recetas WHERE id = ?")
+    .get(recetaId);
+
+  if (!receta || !receta.ingredientes) {
+    return [];
+  }
+
+  return String(receta.ingredientes)
+    .split(",")
+    .map((item) => normalizarIngrediente(item))
+    .filter(Boolean);
+}
+
+function guardarIngredientesReceta(recetaId, ingredientes) {
+  db.prepare("DELETE FROM receta_ingredientes WHERE receta_id = ?").run(recetaId);
+
+  const lista = Array.isArray(ingredientes) ? ingredientes : [];
+
+  for (let indice = 0; indice < lista.length; indice++) {
+    const nombre = normalizarIngrediente(lista[indice]);
+
+    if (!nombre) continue;
+
+    const slug = String(nombre)
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    if (!slug) continue;
+
+    const ingredienteExistente = db
+      .prepare("SELECT id FROM ingredientes WHERE slug = ?")
+      .get(slug);
+
+    let ingredienteId;
+
+    if (ingredienteExistente) {
+      ingredienteId = ingredienteExistente.id;
+    } else {
+      const creado = db
+        .prepare("INSERT INTO ingredientes (nombre, slug) VALUES (?, ?)")
+        .run(nombre, slug);
+
+      ingredienteId = creado.lastInsertRowid;
+    }
+
+    db.prepare(`
+      INSERT INTO receta_ingredientes (receta_id, ingrediente_id, orden)
+      VALUES (?, ?, ?)
+    `).run(recetaId, ingredienteId, indice + 1);
+  }
+
+  const receta = db.prepare("SELECT ingredientes FROM recetas WHERE id = ?").get(recetaId);
+
+  if (receta) {
+    db.prepare("UPDATE recetas SET ingredientes = ? WHERE id = ?").run(
+      lista.map((item) => normalizarIngrediente(item)).filter(Boolean).join(","),
+      recetaId,
+    );
+  }
+}
+
 const convertirFila = (fila) => ({
   ...fila,
-  ingredientes: fila.ingredientes.split(","),
+  ingredientes: obtenerIngredientesDeReceta(fila.id),
   esVegetariano: Boolean(fila.esVegetariano),
 });
 
@@ -68,11 +158,13 @@ app.post("/recetas", verificarToken, (req, res) => {
     nombre,
     porciones,
     tiempoMinutos,
-    ingredientes.join(","),
+    (Array.isArray(ingredientes) ? ingredientes : []).join(","),
     esVegetariano ? 1 : 0,
     imagen || null,
     req.usuario.id,
   );
+
+  guardarIngredientesReceta(resultado.lastInsertRowid, ingredientes);
 
   const nuevaReceta = db
     .prepare("SELECT * FROM recetas WHERE id = ?")
@@ -94,9 +186,17 @@ app.put("/recetas/:id", verificarToken, (req, res) => {
     return res.status(403).json({ mensaje: "No podés editar una receta que no creaste" });
   }
 
+  guardarIngredientesReceta(req.params.id, ingredientes);
+
   db.prepare(
     "UPDATE recetas SET nombre = ?, porciones = ?, tiempoMinutos = ?, ingredientes = ? WHERE id = ?",
-  ).run(nombre, porciones, tiempoMinutos, ingredientes.join(","), req.params.id);
+  ).run(
+    nombre,
+    porciones,
+    tiempoMinutos,
+    Array.isArray(ingredientes) ? ingredientes.map((item) => normalizarIngrediente(item)).filter(Boolean).join(",") : "",
+    req.params.id,
+  );
 
   const recetaActualizada = db.prepare("SELECT * FROM recetas WHERE id = ?").get(req.params.id);
   res.json(convertirFila(recetaActualizada));
