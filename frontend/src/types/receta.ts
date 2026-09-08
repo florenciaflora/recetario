@@ -10,6 +10,14 @@ export interface Receta {
   acompanamiento?: string | null;
   notas?: string | null;
   pasos?: PasoPreparacion[];
+  categoria_id?: number | null;
+  categoria?: Categoria | null;
+}
+
+export interface Categoria {
+  id: number;
+  nombre: string;
+  slug: string;
 }
 
 export interface PasoPreparacion {

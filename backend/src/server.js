@@ -141,6 +141,9 @@ function guardarPasosReceta(recetaId, pasos) {
 
 const convertirFila = (fila) => ({
   ...fila,
+  categoria: fila.categoria_id
+    ? db.prepare("SELECT id, nombre, slug FROM categorias WHERE id = ?").get(fila.categoria_id)
+    : null,
   ingredientes: obtenerIngredientesDeReceta(fila.id),
   pasos: obtenerPasosDeReceta(fila.id),
   esVegetariano: Boolean(fila.esVegetariano),
@@ -149,6 +152,11 @@ const convertirFila = (fila) => ({
 app.get("/recetas", (req, res) => {
   const filas = db.prepare("SELECT * FROM recetas").all();
   res.json(filas.map(convertirFila));
+});
+
+app.get("/categorias", (req, res) => {
+  const categorias = db.prepare("SELECT id, nombre, slug FROM categorias ORDER BY nombre").all();
+  res.json(categorias);
 });
 
 app.get("/recetas/:id", (req, res) => {
@@ -185,11 +193,12 @@ app.post("/recetas", verificarToken, (req, res) => {
     esVegetariano,
     imagen,
     pasos,
+    categoria_id: categoriaId,
   } = req.body;
 
   const insertar = db.prepare(`
-    INSERT INTO recetas (nombre, porciones, tiempoMinutos, ingredientes, esVegetariano, imagen, usuario_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO recetas (nombre, porciones, tiempoMinutos, ingredientes, esVegetariano, imagen, usuario_id, categoria_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const resultado = insertar.run(
@@ -200,6 +209,7 @@ app.post("/recetas", verificarToken, (req, res) => {
     esVegetariano ? 1 : 0,
     imagen || null,
     req.usuario.id,
+    categoriaId || null,
   );
 
   guardarIngredientesReceta(resultado.lastInsertRowid, ingredientes);
@@ -213,7 +223,7 @@ app.post("/recetas", verificarToken, (req, res) => {
 });
 
 app.put("/recetas/:id", verificarToken, (req, res) => {
-  const { nombre, porciones, tiempoMinutos, ingredientes, pasos } = req.body;
+  const { nombre, porciones, tiempoMinutos, ingredientes, pasos, categoria_id: categoriaId } = req.body;
 
   const receta = db.prepare("SELECT * FROM recetas WHERE id = ?").get(req.params.id);
 
@@ -229,12 +239,13 @@ app.put("/recetas/:id", verificarToken, (req, res) => {
   guardarPasosReceta(req.params.id, pasos);
 
   db.prepare(
-    "UPDATE recetas SET nombre = ?, porciones = ?, tiempoMinutos = ?, ingredientes = ? WHERE id = ?",
+    "UPDATE recetas SET nombre = ?, porciones = ?, tiempoMinutos = ?, ingredientes = ?, categoria_id = COALESCE(?, categoria_id) WHERE id = ?",
   ).run(
     nombre,
     porciones,
     tiempoMinutos,
     Array.isArray(ingredientes) ? ingredientes.map((item) => normalizarIngrediente(item)).filter(Boolean).join(",") : "",
+    categoriaId || null,
     req.params.id,
   );
 

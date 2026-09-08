@@ -1,4 +1,4 @@
-import type { DatosRecetaActualizar, Receta } from "../types/receta";
+import type { Categoria, DatosRecetaActualizar, Receta } from "../types/receta";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -15,6 +15,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 
 export const recetasApi = {
   listarRecetas: () => fetchJson<Receta[]>("/recetas"),
+  listarCategorias: () => fetchJson<Categoria[]>("/categorias"),
   obtenerReceta: (id: number | string) => fetchJson<Receta>(`/recetas/${id}`),
   crearReceta: (receta: Omit<Receta, "id" | "usuario_id" | "acompanamiento" | "notas">, token: string | null) =>
     fetchJson<Receta>("/recetas", {

@@ -98,6 +98,23 @@ createTableIfMissing(`
   )
 `);
 
+const categoriasBase = [
+  ["Sin categoría", "sin-categoria"],
+  ["Desayunos", "desayunos"],
+  ["Almuerzos", "almuerzos"],
+  ["Cenas", "cenas"],
+  ["Postres", "postres"],
+  ["Bebidas", "bebidas"],
+];
+
+const insertarCategoriaBase = db.prepare(
+  "INSERT OR IGNORE INTO categorias (nombre, slug) VALUES (?, ?)",
+);
+
+for (const categoria of categoriasBase) {
+  insertarCategoriaBase.run(...categoria);
+}
+
 createTableIfMissing(`
   CREATE TABLE IF NOT EXISTS ingredientes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -4,10 +4,11 @@ import { Link, Route, Routes } from "react-router-dom";
 import { DetalleReceta } from "./components/DetalleReceta";
 import { TarjetaReceta } from "./components/TarjetaReceta";
 import { recetasApi } from "./services/recetasApi";
-import type { DatosRecetaActualizar, Receta } from "./types/receta";
+import type { Categoria, DatosRecetaActualizar, Receta } from "./types/receta";
 
 function App() {
   const [recetas, setRecetas] = useState<Receta[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [nuevoTiempo, setNuevoTiempo] = useState("");
@@ -22,6 +23,8 @@ function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
   const [mostrarLogin, setMostrarLogin] = useState(false);
   const [filtroActivo, setFiltroActivo] = useState<"todas" | "vegetariano" | "rapido">("todas");
+  const [categoriaActiva, setCategoriaActiva] = useState("");
+  const [nuevaCategoria, setNuevaCategoria] = useState("");
 
   const usuarioActual = token ? jwtDecode<{ id: number; email: string }>(token) : null;
 
@@ -42,6 +45,13 @@ function App() {
           setCargando(false);
         }
       });
+
+    recetasApi
+      .listarCategorias()
+      .then((datos) => {
+        if (activo) setCategorias(datos);
+      })
+      .catch((error) => console.error(error));
 
     return () => {
       activo = false;
@@ -86,6 +96,7 @@ function App() {
           imagen: null,
         }))
         .filter((paso) => paso.descripcion),
+      categoria_id: nuevaCategoria ? Number(nuevaCategoria) : null,
       esVegetariano: nuevoVegetariano,
       imagen: nuevaImagen || null,
     };
@@ -98,6 +109,7 @@ function App() {
       setNuevasPorciones("");
       setNuevosIngredientes("");
       setNuevosPasos("");
+      setNuevaCategoria("");
       setNuevaImagen("");
       setNuevoVegetariano(false);
     } catch (error) {
@@ -116,6 +128,7 @@ function App() {
 
       return !textoBusqueda || coincideNombre || coincideIngrediente;
     })
+    .filter((receta) => !categoriaActiva || String(receta.categoria_id || "") === categoriaActiva)
     .filter((receta) => {
       if (filtroActivo === "vegetariano") return receta.esVegetariano;
       if (filtroActivo === "rapido") return receta.tiempoMinutos <= 30;
@@ -230,6 +243,20 @@ function App() {
                 </button>
               </div>
 
+              <select
+                className="selector-categoria"
+                value={categoriaActiva}
+                onChange={(evento) => setCategoriaActiva(evento.target.value)}
+                aria-label="Filtrar por categoría"
+              >
+                <option value="">Todas las categorías</option>
+                {categorias.map((categoria) => (
+                  <option key={categoria.id} value={categoria.id}>
+                    {categoria.nombre}
+                  </option>
+                ))}
+              </select>
+
               {token && (
                 <form className="formulario" onSubmit={agregarReceta}>
                   <input
@@ -262,6 +289,20 @@ function App() {
                     onChange={(evento) => setNuevosPasos(evento.target.value)}
                     rows={4}
                   />
+                  <select
+                    value={nuevaCategoria}
+                    onChange={(evento) => setNuevaCategoria(evento.target.value)}
+                    aria-label="Categoría de la receta"
+                  >
+                    <option value="">Sin categoría</option>
+                    {categorias
+                      .filter((categoria) => categoria.slug !== "sin-categoria")
+                      .map((categoria) => (
+                        <option key={categoria.id} value={categoria.id}>
+                          {categoria.nombre}
+                        </option>
+                      ))}
+                  </select>
                   <input
                     type="text"
                     placeholder="URL de la imagen"
