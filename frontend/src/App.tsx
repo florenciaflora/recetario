@@ -355,6 +355,7 @@ function App() {
                       imagen={receta.imagen}
                       usuario_id={receta.usuario_id}
                       pasos={receta.pasos}
+                      categorias={categorias}
                       acompanamiento={receta.acompanamiento}
                       notas={receta.notas}
                       onBorrar={borrarReceta}

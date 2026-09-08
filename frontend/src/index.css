@@ -360,6 +360,18 @@ a {
   border-color: var(--color-verde);
 }
 
+.tarjeta select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-sm);
+  margin-bottom: 8px;
+  background: white;
+  color: var(--color-texto-suave);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+}
+
 .tarjeta button {
   padding: 8px 16px;
   margin-right: 6px;

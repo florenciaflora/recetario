@@ -238,16 +238,22 @@ app.put("/recetas/:id", verificarToken, (req, res) => {
   guardarIngredientesReceta(req.params.id, ingredientes);
   guardarPasosReceta(req.params.id, pasos);
 
-  db.prepare(
-    "UPDATE recetas SET nombre = ?, porciones = ?, tiempoMinutos = ?, ingredientes = ?, categoria_id = COALESCE(?, categoria_id) WHERE id = ?",
-  ).run(
+  const datosActualizacion = [
     nombre,
     porciones,
     tiempoMinutos,
     Array.isArray(ingredientes) ? ingredientes.map((item) => normalizarIngrediente(item)).filter(Boolean).join(",") : "",
-    categoriaId || null,
-    req.params.id,
-  );
+  ];
+
+  if (categoriaId === undefined) {
+    db.prepare(
+      "UPDATE recetas SET nombre = ?, porciones = ?, tiempoMinutos = ?, ingredientes = ? WHERE id = ?",
+    ).run(...datosActualizacion, req.params.id);
+  } else {
+    db.prepare(
+      "UPDATE recetas SET nombre = ?, porciones = ?, tiempoMinutos = ?, ingredientes = ?, categoria_id = ? WHERE id = ?",
+    ).run(...datosActualizacion, categoriaId || null, req.params.id);
+  }
 
   const recetaActualizada = db.prepare("SELECT * FROM recetas WHERE id = ?").get(req.params.id);
   res.json(convertirFila(recetaActualizada));

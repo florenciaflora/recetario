@@ -34,4 +34,5 @@ export interface DatosRecetaActualizar {
   tiempoMinutos: number;
   ingredientes: string[];
   pasos?: PasoPreparacion[];
+  categoria_id?: number | null;
 }

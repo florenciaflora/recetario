@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { DatosRecetaActualizar, Receta } from "../types/receta";
+import type { Categoria, DatosRecetaActualizar, Receta } from "../types/receta";
 
 interface PropsTarjeta extends Receta {
   onBorrar: (id: number) => void;
@@ -8,6 +8,7 @@ interface PropsTarjeta extends Receta {
   onSolicitarEliminacion: (id: number, motivo: string) => void;
   token: string | null;
   idUsuarioActual: number | null;
+  categorias: Categoria[];
 }
 
 const MAX_INGREDIENTES_VISIBLES = 4;
@@ -21,12 +22,14 @@ export function TarjetaReceta({
   esVegetariano,
   imagen,
   usuario_id,
+  categoria_id,
   pasos = [],
   onBorrar,
   onActualizar,
   onSolicitarEliminacion,
   token,
   idUsuarioActual,
+  categorias,
 }: PropsTarjeta) {
   const [minutosEditados, setMinutosEditados] = useState(String(tiempoMinutos));
   const [nombreEditado, setNombreEditado] = useState(nombre);
@@ -35,6 +38,7 @@ export function TarjetaReceta({
   const [pasosEditados, setPasosEditados] = useState(
     pasos.map((paso) => paso.descripcion).join("\n"),
   );
+  const [categoriaEditada, setCategoriaEditada] = useState(String(categoria_id || ""));
 
   const ingredientesVisibles = ingredientes.slice(0, MAX_INGREDIENTES_VISIBLES);
   const restantes = ingredientes.length - ingredientesVisibles.length;
@@ -96,6 +100,20 @@ export function TarjetaReceta({
                 placeholder="Pasos de preparación, uno por línea"
                 rows={4}
               />
+              <select
+                value={categoriaEditada}
+                onChange={(evento) => setCategoriaEditada(evento.target.value)}
+                aria-label={`Categoría de ${nombre}`}
+              >
+                <option value="">Sin categoría</option>
+                {categorias
+                  .filter((categoria) => categoria.slug !== "sin-categoria")
+                  .map((categoria) => (
+                    <option key={categoria.id} value={categoria.id}>
+                      {categoria.nombre}
+                    </option>
+                  ))}
+              </select>
               <div>
                 <button
                   className="boton-guardar"
@@ -114,6 +132,7 @@ export function TarjetaReceta({
                           imagen: pasos[indice]?.imagen || null,
                         }))
                         .filter((paso) => paso.descripcion),
+                      categoria_id: categoriaEditada ? Number(categoriaEditada) : null,
                     })
                   }
                 >
