@@ -21,6 +21,7 @@ export function TarjetaReceta({
   esVegetariano,
   imagen,
   usuario_id,
+  pasos = [],
   onBorrar,
   onActualizar,
   onSolicitarEliminacion,
@@ -31,6 +32,9 @@ export function TarjetaReceta({
   const [nombreEditado, setNombreEditado] = useState(nombre);
   const [porcionesEditadas, setPorcionesEditadas] = useState(String(porciones));
   const [ingredientesEditados, setIngredientesEditados] = useState(ingredientes.join(", "));
+  const [pasosEditados, setPasosEditados] = useState(
+    pasos.map((paso) => paso.descripcion).join("\n"),
+  );
 
   const ingredientesVisibles = ingredientes.slice(0, MAX_INGREDIENTES_VISIBLES);
   const restantes = ingredientes.length - ingredientesVisibles.length;
@@ -86,6 +90,12 @@ export function TarjetaReceta({
                 onChange={(evento) => setIngredientesEditados(evento.target.value)}
                 placeholder="Ingredientes (separados por coma)"
               />
+              <textarea
+                value={pasosEditados}
+                onChange={(evento) => setPasosEditados(evento.target.value)}
+                placeholder="Pasos de preparación, uno por línea"
+                rows={4}
+              />
               <div>
                 <button
                   className="boton-guardar"
@@ -95,6 +105,15 @@ export function TarjetaReceta({
                       porciones: Number(porcionesEditadas),
                       tiempoMinutos: Number(minutosEditados),
                       ingredientes: ingredientesEditados.split(",").map((i) => i.trim()),
+                      pasos: pasosEditados
+                        .split("\n")
+                        .map((descripcion, indice) => ({
+                          orden: indice + 1,
+                          titulo: pasos[indice]?.titulo || null,
+                          descripcion: descripcion.trim(),
+                          imagen: pasos[indice]?.imagen || null,
+                        }))
+                        .filter((paso) => paso.descripcion),
                     })
                   }
                 >

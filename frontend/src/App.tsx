@@ -305,6 +305,7 @@ function App() {
                       esVegetariano={receta.esVegetariano}
                       imagen={receta.imagen}
                       usuario_id={receta.usuario_id}
+                      pasos={receta.pasos}
                       acompanamiento={receta.acompanamiento}
                       notas={receta.notas}
                       onBorrar={borrarReceta}
