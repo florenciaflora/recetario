@@ -107,7 +107,15 @@ function App() {
   };
 
   const recetasFiltradas = recetas
-    .filter((receta) => receta.nombre.toLowerCase().includes(busqueda.toLowerCase()))
+    .filter((receta) => {
+      const textoBusqueda = busqueda.toLowerCase().trim();
+      const coincideNombre = receta.nombre.toLowerCase().includes(textoBusqueda);
+      const coincideIngrediente = receta.ingredientes.some((ingrediente) =>
+        ingrediente.toLowerCase().includes(textoBusqueda),
+      );
+
+      return !textoBusqueda || coincideNombre || coincideIngrediente;
+    })
     .filter((receta) => {
       if (filtroActivo === "vegetariano") return receta.esVegetariano;
       if (filtroActivo === "rapido") return receta.tiempoMinutos <= 30;
