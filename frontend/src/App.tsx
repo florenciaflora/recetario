@@ -1,225 +1,12 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { jwtDecode } from "jwt-decode";
-import { useParams, Link } from "react-router-dom";
-import { Routes, Route } from "react-router-dom";
-
-interface Receta {
-  id: number;
-  nombre: string;
-  porciones: number;
-  tiempoMinutos: number;
-  ingredientes: string[];
-  esVegetariano: boolean;
-  imagen: string;
-  usuario_id: number | null;
-  acompanamiento: string | null;
-  notas: string | null;
-}
-
-interface PropsTarjeta extends Receta {
-  onBorrar: (id: number) => void;
-  onActualizar: (
-    id: number,
-    datos: { nombre: string; porciones: number; tiempoMinutos: number; ingredientes: string[] }
-  ) => void;
-  onSolicitarEliminacion: (id: number, motivo: string) => void;
-  token: string | null;
-  idUsuarioActual: number | null;
-}
-
-const MAX_INGREDIENTES_VISIBLES = 4;
-
-function TarjetaReceta({
-  id,
-  nombre,
-  porciones,
-  tiempoMinutos,
-  ingredientes,
-  esVegetariano,
-  imagen,
-  usuario_id,
-  onBorrar,
-  onActualizar,
-  onSolicitarEliminacion,
-  token,
-  idUsuarioActual,
-}: PropsTarjeta) {
-  const [minutosEditados, setMinutosEditados] = useState(String(tiempoMinutos));
-  const [nombreEditado, setNombreEditado] = useState(nombre);
-  const [porcionesEditadas, setPorcionesEditadas] = useState(String(porciones));
-  const [ingredientesEditados, setIngredientesEditados] = useState(ingredientes.join(", "));
-
-  const listaIngredientes = ingredientes ?? [];
-  const ingredientesVisibles = listaIngredientes.slice(0, MAX_INGREDIENTES_VISIBLES);
-  const restantes = listaIngredientes.length - ingredientesVisibles.length;
-
-  return (
-    <div className="tarjeta">
-      <Link to={`/recetas/${id}`} style={{ textDecoration: "none", color: "inherit" }}>
-        {imagen ? (
-          <img src={imagen} alt={nombre} className="imagen-receta" loading="lazy" />
-        ) : (
-          <div className="imagen-receta imagen-placeholder">🍽️</div>
-        )}
-        <div className="tarjeta-contenido">
-          <h2>{nombre}</h2>
-          <p className="meta">
-            {porciones} porciones · {tiempoMinutos} min{" "}
-            {esVegetariano ? "· 🌱" : ""}
-          </p>
-
-          <ul>
-            {ingredientesVisibles.map((ingrediente) => (
-              <li key={ingrediente}>{ingrediente}</li>
-            ))}
-          </ul>
-          {restantes > 0 && <p className="ingredientes-restantes">+{restantes} más</p>}
-        </div>
-      </Link>
-
-      {token && (
-        <div className="tarjeta-acciones">
-          {usuario_id === idUsuarioActual ? (
-            <>
-              <input
-                type="text"
-                value={nombreEditado}
-                onChange={(evento) => setNombreEditado(evento.target.value)}
-                placeholder="Nombre"
-              />
-              <input
-                type="number"
-                value={porcionesEditadas}
-                onChange={(evento) => setPorcionesEditadas(evento.target.value)}
-                placeholder="Porciones"
-              />
-              <input
-                type="number"
-                value={minutosEditados}
-                onChange={(evento) => setMinutosEditados(evento.target.value)}
-                placeholder="Minutos"
-              />
-              <input
-                type="text"
-                value={ingredientesEditados}
-                onChange={(evento) => setIngredientesEditados(evento.target.value)}
-                placeholder="Ingredientes (separados por coma)"
-              />
-              <div>
-                <button
-                  className="boton-guardar"
-                  onClick={() =>
-                    onActualizar(id, {
-                      nombre: nombreEditado,
-                      porciones: Number(porcionesEditadas),
-                      tiempoMinutos: Number(minutosEditados),
-                      ingredientes: ingredientesEditados.split(",").map((i) => i.trim()),
-                    })
-                  }
-                >
-                  Guardar
-                </button>
-                <button className="boton-borrar" onClick={() => onBorrar(id)}>
-                  Borrar
-                </button>
-              </div>
-            </>
-          ) : (
-            <button
-              className="boton-borrar"
-              onClick={() => {
-                const motivo = prompt("¿Por qué querés que se elimine esta receta?");
-                if (motivo) {
-                  onSolicitarEliminacion(id, motivo);
-                }
-              }}
-            >
-              Solicitar eliminación
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DetalleReceta() {
-  const { id } = useParams();
-  const API_URL = import.meta.env.VITE_API_URL;
-  const [receta, setReceta] = useState<Receta | null>(null);
-
-  useEffect(() => {
-    fetch(`${API_URL}/recetas/${id}`)
-      .then((respuesta) => respuesta.json())
-      .then((datos) => setReceta(datos));
-  }, [id, API_URL]);
-
-  if (!receta) {
-    return (
-      <div className="detalle-pagina">
-        <Link to="/" className="detalle-volver">← Volver a todas las recetas</Link>
-        <p className="detalle-cargando">Cargando...</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="detalle-pagina">
-      <div className="detalle-barra">
-        <Link to="/" className="detalle-volver">← Volver a todas las recetas</Link>
-        <button
-          className="boton-compartir"
-          onClick={() => {
-            navigator.clipboard.writeText(window.location.href);
-            alert("¡Link copiado! Ya lo podés compartir.");
-          }}
-        >
-          🔗 Compartir
-        </button>
-      </div>
-
-      <div className="detalle-tarjeta">
-        {receta.imagen && <img src={receta.imagen} alt={receta.nombre} className="detalle-imagen" />}
-        <h1>{receta.nombre}</h1>
-        <p className="meta">
-          {receta.porciones} porciones · {receta.tiempoMinutos} min{" "}
-          {receta.esVegetariano ? "· 🌱 Vegetariano" : ""}
-        </p>
-        <h3>Ingredientes</h3>
-        <ul>
-          {receta.ingredientes.map((ingrediente) => (
-            <li key={ingrediente}>{ingrediente}</li>
-          ))}
-        </ul>
-        {receta.acompanamiento && (
-          <>
-            <h3>Acompañamiento</h3>
-            <p>{receta.acompanamiento}</p>
-          </>
-        )}
-
-        {receta.notas && (
-          <>
-            <h3>Notas / Receta</h3>
-            <p>
-              {receta.notas.startsWith("http") ? (
-                <a href={receta.notas} target="_blank" rel="noopener noreferrer">
-                  Ver receta completa
-                </a>
-              ) : (
-                receta.notas
-              )}
-            </p>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+import { Link, Route, Routes } from "react-router-dom";
+import { DetalleReceta } from "./components/DetalleReceta";
+import { TarjetaReceta } from "./components/TarjetaReceta";
+import { recetasApi } from "./services/recetasApi";
+import type { DatosRecetaActualizar, Receta } from "./types/receta";
 
 function App() {
-  const API_URL = import.meta.env.VITE_API_URL;
-
   const [recetas, setRecetas] = useState<Receta[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [nuevoNombre, setNuevoNombre] = useState("");
@@ -233,35 +20,45 @@ function App() {
   const [contrasenaLogin, setContrasenaLogin] = useState("");
   const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
   const [mostrarLogin, setMostrarLogin] = useState(false);
-  const usuarioActual = token ? jwtDecode<{ id: number; email: string }>(token) : null;
   const [filtroActivo, setFiltroActivo] = useState<"todas" | "vegetariano" | "rapido">("todas");
 
-  useEffect(() => {
-    fetch(`${API_URL}/recetas`)
-      .then((respuesta) => respuesta.json())
-      .then((datos) => {
-        setRecetas(datos);
-        setCargando(false);
-      });
-  }, [API_URL]);
+  const usuarioActual = token ? jwtDecode<{ id: number; email: string }>(token) : null;
 
-  const iniciarSesion = async (evento: React.FormEvent) => {
+  useEffect(() => {
+    let activo = true;
+
+    recetasApi
+      .listarRecetas()
+      .then((datos) => {
+        if (activo) {
+          setRecetas(datos);
+          setCargando(false);
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        if (activo) {
+          setCargando(false);
+        }
+      });
+
+    return () => {
+      activo = false;
+    };
+  }, []);
+
+  const iniciarSesion = async (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
 
-    const respuesta = await fetch(`${API_URL}/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: emailLogin, contrasena: contrasenaLogin }),
-    });
-
-    if (respuesta.ok) {
-      const datos = await respuesta.json();
+    try {
+      const datos = await recetasApi.login(emailLogin, contrasenaLogin);
       setToken(datos.token);
       localStorage.setItem("token", datos.token);
       setEmailLogin("");
       setContrasenaLogin("");
       setMostrarLogin(false);
-    } else {
+    } catch (error) {
+      console.error(error);
       alert("Email o contraseña incorrectos");
     }
   };
@@ -271,35 +68,31 @@ function App() {
     localStorage.removeItem("token");
   };
 
-  const agregarReceta = async (evento: React.FormEvent) => {
+  const agregarReceta = async (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
+
     const recetaNueva = {
       nombre: nuevoNombre,
       tiempoMinutos: Number(nuevoTiempo),
       porciones: Number(nuevasPorciones),
       ingredientes: nuevosIngredientes.split(",").map((ing) => ing.trim()),
       esVegetariano: nuevoVegetariano,
-      imagen: nuevaImagen,
+      imagen: nuevaImagen || null,
     };
 
-    const respuesta = await fetch(`${API_URL}/recetas`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(recetaNueva),
-    });
-
-    const recetaCreada = await respuesta.json();
-    setRecetas([...recetas, recetaCreada]);
-
-    setNuevoNombre("");
-    setNuevoTiempo("");
-    setNuevasPorciones("");
-    setNuevosIngredientes("");
-    setNuevaImagen("");
-    setNuevoVegetariano(false);
+    try {
+      const recetaCreada = await recetasApi.crearReceta(recetaNueva, token);
+      setRecetas((actual) => [...actual, recetaCreada]);
+      setNuevoNombre("");
+      setNuevoTiempo("");
+      setNuevasPorciones("");
+      setNuevosIngredientes("");
+      setNuevaImagen("");
+      setNuevoVegetariano(false);
+    } catch (error) {
+      console.error(error);
+      alert("No se pudo crear la receta.");
+    }
   };
 
   const recetasFiltradas = recetas
@@ -311,53 +104,32 @@ function App() {
     });
 
   const borrarReceta = async (id: number) => {
-    await fetch(`${API_URL}/recetas/${id}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    setRecetas(recetas.filter((receta) => receta.id !== id));
+    try {
+      await recetasApi.borrarReceta(id, token);
+      setRecetas((actual) => actual.filter((receta) => receta.id !== id));
+    } catch (error) {
+      console.error(error);
+      alert("No se pudo eliminar la receta.");
+    }
   };
 
   const solicitarEliminacion = async (recetaId: number, motivo: string) => {
-    const respuesta = await fetch(`${API_URL}/solicitudes`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ receta_id: recetaId, motivo }),
-    });
-
-    if (respuesta.ok) {
+    try {
+      await recetasApi.enviarSolicitud(recetaId, motivo, token);
       alert("Solicitud enviada. El dueño de la receta la va a revisar.");
-    } else {
+    } catch (error) {
+      console.error(error);
       alert("No se pudo enviar la solicitud.");
     }
   };
 
-  const actualizarReceta = async (
-    id: number,
-    datos: { nombre: string; porciones: number; tiempoMinutos: number; ingredientes: string[] }
-  ) => {
-    const respuesta = await fetch(`${API_URL}/recetas/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(datos),
-    });
-
-    if (respuesta.ok) {
-      const recetaActualizada = await respuesta.json();
-      setRecetas(
-        recetas.map((receta) =>
-          receta.id === id ? recetaActualizada : receta,
-        ),
-      );
+  const actualizarReceta = async (id: number, datos: DatosRecetaActualizar) => {
+    try {
+      const recetaActualizada = await recetasApi.actualizarReceta(id, datos, token);
+      setRecetas((actual) => actual.map((receta) => (receta.id === id ? recetaActualizada : receta)));
+    } catch (error) {
+      console.error(error);
+      alert("No se pudo actualizar la receta.");
     }
   };
 
@@ -365,7 +137,9 @@ function App() {
     <>
       <header className="encabezado">
         <div className="encabezado-interior">
-          <Link to="/" className="logo">Mi Recetario Digital</Link>
+          <Link to="/" className="logo">
+            Mi Recetario Digital
+          </Link>
           <div className="sesion-estado">
             {token ? (
               <>
@@ -375,7 +149,7 @@ function App() {
                 </button>
               </>
             ) : (
-              <button className="boton-texto" onClick={() => setMostrarLogin(!mostrarLogin)}>
+              <button className="boton-texto" onClick={() => setMostrarLogin((actual) => !actual)}>
                 🔒 Iniciar sesión
               </button>
             )}
@@ -485,8 +259,7 @@ function App() {
               {cargando ? (
                 <>
                   <p className="texto-cargando">
-                    Cargando recetas... (puede tardar hasta un minuto si el servidor
-                    estaba dormido)
+                    Cargando recetas... (puede tardar hasta un minuto si el servidor estaba dormido)
                   </p>
                   <div className="contenedor-tarjetas">
                     {Array.from({ length: 6 }).map((_, indice) => (
