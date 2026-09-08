@@ -1,0 +1,66 @@
+[
+  {
+    "nombre": "Pollo al azafrán",
+    "porciones": 2,
+    "tiempoMinutos": 60,
+    "ingredientes": [
+      "pollo",
+      "crema",
+      "azafran"
+    ],
+    "esVegetariano": false,
+    "imagen": "https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400"
+  },
+  {
+    "nombre": "Ramen",
+    "porciones": 2,
+    "tiempoMinutos": 45,
+    "ingredientes": [
+      "caldo",
+      "fideos",
+      "cerdo",
+      "huevo"
+    ],
+    "esVegetariano": false,
+    "imagen": "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400"
+  },
+  {
+    "nombre": "Papas a la huancaina",
+    "porciones": 2,
+    "tiempoMinutos": 30,
+    "ingredientes": [
+      "papas",
+      "aji amarillo",
+      "galletitas de agua",
+      "queso fresco",
+      "leche"
+    ],
+    "esVegetariano": false,
+    "imagen": "https://media.istockphoto.com/id/2239815776/photo/papa-a-la-huanca%C3%ADna-is-a-typical-starter-in-peruvian-cuisine-it-is-one-of-the-most-popular.jpg?s=612x612&w=is&k=20&c=r5QBBhz4QTtCgiOhq8USwKZQV265tDdfxmfRVMHJbTs="
+  },
+  {
+    "nombre": "Fideos con tuco",
+    "tiempoMinutos": 45,
+    "porciones": 2,
+    "ingredientes": [
+      "fideos",
+      "tomate",
+      "carne"
+    ],
+    "esVegetariano": false,
+    "imagen": "https://images.unsplash.com/photo-1516100882582-96c3a05fe590?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  },
+  {
+    "nombre": "Rissoto de hongos",
+    "tiempoMinutos": 30,
+    "porciones": 2,
+    "ingredientes": [
+      "arroz",
+      "caldo",
+      "manteca",
+      "hongos"
+    ],
+    "esVegetariano": false,
+    "imagen": "https://images.unsplash.com/photo-1662114757324-fb95be6dceaf?q=80&w=2038&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+  }
+]
