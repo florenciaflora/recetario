@@ -9,6 +9,15 @@ export interface Receta {
   usuario_id: number | null;
   acompanamiento?: string | null;
   notas?: string | null;
+  pasos?: PasoPreparacion[];
+}
+
+export interface PasoPreparacion {
+  id?: number;
+  orden: number;
+  titulo: string | null;
+  descripcion: string;
+  imagen: string | null;
 }
 
 export interface DatosRecetaActualizar {
@@ -16,4 +25,5 @@ export interface DatosRecetaActualizar {
   porciones: number;
   tiempoMinutos: number;
   ingredientes: string[];
+  pasos?: PasoPreparacion[];
 }

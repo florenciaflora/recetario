@@ -469,6 +469,41 @@ a {
   font-family: 'Inter', sans-serif;
 }
 
+.pasos-preparacion {
+  padding-left: 24px;
+  color: var(--color-texto-suave);
+}
+
+.pasos-preparacion li {
+  padding-left: 6px;
+  margin-bottom: 18px;
+}
+
+.pasos-preparacion li::marker {
+  color: var(--color-verde);
+  font-weight: 600;
+}
+
+.pasos-preparacion strong {
+  color: var(--color-texto);
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+}
+
+.pasos-preparacion p {
+  margin: 5px 0 0;
+  line-height: 1.6;
+}
+
+.pasos-preparacion img {
+  display: block;
+  width: min(100%, 420px);
+  max-height: 260px;
+  object-fit: cover;
+  border-radius: var(--radio-sm);
+  margin-top: 10px;
+}
+
 .boton-compartir {
   padding: 8px 16px;
   border-radius: var(--radio-pill);

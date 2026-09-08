@@ -103,9 +103,46 @@ function guardarIngredientesReceta(recetaId, ingredientes) {
   }
 }
 
+function obtenerPasosDeReceta(recetaId) {
+  return db
+    .prepare(`
+      SELECT id, orden, titulo, descripcion, imagen
+      FROM pasos_preparacion
+      WHERE receta_id = ?
+      ORDER BY orden ASC
+    `)
+    .all(recetaId);
+}
+
+function guardarPasosReceta(recetaId, pasos) {
+  if (!Array.isArray(pasos)) return;
+
+  db.prepare("DELETE FROM pasos_preparacion WHERE receta_id = ?").run(recetaId);
+
+  const insertarPaso = db.prepare(`
+    INSERT INTO pasos_preparacion (receta_id, orden, titulo, descripcion, imagen)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+
+  pasos.forEach((paso, indice) => {
+    const descripcion = String(paso?.descripcion || "").trim();
+
+    if (!descripcion) return;
+
+    insertarPaso.run(
+      recetaId,
+      indice + 1,
+      String(paso.titulo || "").trim() || null,
+      descripcion,
+      String(paso.imagen || "").trim() || null,
+    );
+  });
+}
+
 const convertirFila = (fila) => ({
   ...fila,
   ingredientes: obtenerIngredientesDeReceta(fila.id),
+  pasos: obtenerPasosDeReceta(fila.id),
   esVegetariano: Boolean(fila.esVegetariano),
 });
 
@@ -147,6 +184,7 @@ app.post("/recetas", verificarToken, (req, res) => {
     ingredientes,
     esVegetariano,
     imagen,
+    pasos,
   } = req.body;
 
   const insertar = db.prepare(`
@@ -165,6 +203,7 @@ app.post("/recetas", verificarToken, (req, res) => {
   );
 
   guardarIngredientesReceta(resultado.lastInsertRowid, ingredientes);
+  guardarPasosReceta(resultado.lastInsertRowid, pasos);
 
   const nuevaReceta = db
     .prepare("SELECT * FROM recetas WHERE id = ?")
@@ -174,7 +213,7 @@ app.post("/recetas", verificarToken, (req, res) => {
 });
 
 app.put("/recetas/:id", verificarToken, (req, res) => {
-  const { nombre, porciones, tiempoMinutos, ingredientes } = req.body;
+  const { nombre, porciones, tiempoMinutos, ingredientes, pasos } = req.body;
 
   const receta = db.prepare("SELECT * FROM recetas WHERE id = ?").get(req.params.id);
 
@@ -187,6 +226,7 @@ app.put("/recetas/:id", verificarToken, (req, res) => {
   }
 
   guardarIngredientesReceta(req.params.id, ingredientes);
+  guardarPasosReceta(req.params.id, pasos);
 
   db.prepare(
     "UPDATE recetas SET nombre = ?, porciones = ?, tiempoMinutos = ?, ingredientes = ? WHERE id = ?",

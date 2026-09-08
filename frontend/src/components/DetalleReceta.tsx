@@ -50,6 +50,22 @@ export function DetalleReceta() {
             <li key={ingrediente}>{ingrediente}</li>
           ))}
         </ul>
+        {receta.pasos && receta.pasos.length > 0 && (
+          <>
+            <h3>Preparación</h3>
+            <ol className="pasos-preparacion">
+              {receta.pasos.map((paso) => (
+                <li key={paso.id ?? paso.orden}>
+                  {paso.titulo && <strong>{paso.titulo}</strong>}
+                  <p>{paso.descripcion}</p>
+                  {paso.imagen && (
+                    <img src={paso.imagen} alt={paso.titulo || `Paso ${paso.orden}`} loading="lazy" />
+                  )}
+                </li>
+              ))}
+            </ol>
+          </>
+        )}
         {receta.acompanamiento && (
           <>
             <h3>Acompañamiento</h3>
