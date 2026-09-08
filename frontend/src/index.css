@@ -178,7 +178,20 @@ a {
   transition: border-color 0.2s ease;
 }
 
-.formulario input:focus {
+.formulario textarea {
+  width: min(100%, 420px);
+  padding: 10px 14px;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-sm);
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.formulario input:focus,
+.formulario textarea:focus {
   border-color: var(--color-verde);
 }
 

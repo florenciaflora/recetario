@@ -13,6 +13,7 @@ function App() {
   const [nuevoTiempo, setNuevoTiempo] = useState("");
   const [nuevasPorciones, setNuevasPorciones] = useState("");
   const [nuevosIngredientes, setNuevosIngredientes] = useState("");
+  const [nuevosPasos, setNuevosPasos] = useState("");
   const [nuevaImagen, setNuevaImagen] = useState("");
   const [nuevoVegetariano, setNuevoVegetariano] = useState(false);
   const [cargando, setCargando] = useState(true);
@@ -76,6 +77,15 @@ function App() {
       tiempoMinutos: Number(nuevoTiempo),
       porciones: Number(nuevasPorciones),
       ingredientes: nuevosIngredientes.split(",").map((ing) => ing.trim()),
+      pasos: nuevosPasos
+        .split("\n")
+        .map((descripcion, indice) => ({
+          orden: indice + 1,
+          titulo: null,
+          descripcion: descripcion.trim(),
+          imagen: null,
+        }))
+        .filter((paso) => paso.descripcion),
       esVegetariano: nuevoVegetariano,
       imagen: nuevaImagen || null,
     };
@@ -87,6 +97,7 @@ function App() {
       setNuevoTiempo("");
       setNuevasPorciones("");
       setNuevosIngredientes("");
+      setNuevosPasos("");
       setNuevaImagen("");
       setNuevoVegetariano(false);
     } catch (error) {
@@ -236,6 +247,12 @@ function App() {
                     placeholder="Ej: papas, sal, aceite"
                     value={nuevosIngredientes}
                     onChange={(evento) => setNuevosIngredientes(evento.target.value)}
+                  />
+                  <textarea
+                    placeholder="Pasos de preparación, uno por línea"
+                    value={nuevosPasos}
+                    onChange={(evento) => setNuevosPasos(evento.target.value)}
+                    rows={4}
                   />
                   <input
                     type="text"
