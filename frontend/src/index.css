@@ -414,6 +414,26 @@ a {
   margin-bottom: 20px;
 }
 
+.estado-error,
+.estado-vacio {
+  max-width: 620px;
+  margin: 24px auto;
+  padding: 16px;
+  border-radius: var(--radio-sm);
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+}
+
+.estado-error {
+  border: 1px solid #e8b8a8;
+  background: #fff2ed;
+  color: #8f3f28;
+}
+
+.estado-vacio {
+  color: var(--color-texto-tenue);
+}
+
 .contenedor-tarjetas {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));

@@ -7,7 +7,8 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 
   if (!respuesta.ok) {
     const error = await respuesta.json().catch(() => ({}));
-    throw new Error(error.mensaje || "Error en la solicitud");
+    const detalle = Array.isArray(error.errores) ? `: ${error.errores.join(". ")}` : "";
+    throw new Error(`${error.mensaje || "Error en la solicitud"}${detalle}`);
   }
 
   return respuesta.json() as Promise<T>;

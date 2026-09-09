@@ -12,6 +12,7 @@ function App() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [cargando, setCargando] = useState(true);
+  const [errorListado, setErrorListado] = useState("");
   const [emailLogin, setEmailLogin] = useState("");
   const [contrasenaLogin, setContrasenaLogin] = useState("");
   const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
@@ -31,12 +32,14 @@ function App() {
       .then((datos) => {
         if (activo) {
           setRecetas(datos);
+          setErrorListado("");
           setCargando(false);
         }
       })
       .catch((error) => {
         console.error(error);
         if (activo) {
+          setErrorListado(error instanceof Error ? error.message : "No se pudieron cargar las recetas.");
           setCargando(false);
         }
       });
@@ -252,6 +255,10 @@ function App() {
                     ))}
                   </div>
                 </>
+              ) : errorListado ? (
+                <div className="estado-error" role="alert">{errorListado}</div>
+              ) : recetasFiltradas.length === 0 ? (
+                <p className="estado-vacio">No encontramos recetas con esos criterios.</p>
               ) : (
                 <div className="contenedor-tarjetas">
                   {recetasFiltradas.map((receta) => (
