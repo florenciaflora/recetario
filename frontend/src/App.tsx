@@ -86,7 +86,10 @@ function App() {
       nombre: nuevoNombre,
       tiempoMinutos: Number(nuevoTiempo),
       porciones: Number(nuevasPorciones),
-      ingredientes: nuevosIngredientes.split(",").map((ing) => ing.trim()),
+      ingredientes: nuevosIngredientes
+        .split(",")
+        .map((nombre) => ({ nombre: nombre.trim(), cantidad: null, unidad: null, notas: null }))
+        .filter((ingrediente) => ingrediente.nombre),
       pasos: nuevosPasos
         .split("\n")
         .map((descripcion, indice) => ({
@@ -123,7 +126,7 @@ function App() {
       const textoBusqueda = busqueda.toLowerCase().trim();
       const coincideNombre = receta.nombre.toLowerCase().includes(textoBusqueda);
       const coincideIngrediente = receta.ingredientes.some((ingrediente) =>
-        ingrediente.toLowerCase().includes(textoBusqueda),
+        ingrediente.nombre.toLowerCase().includes(textoBusqueda),
       );
 
       return !textoBusqueda || coincideNombre || coincideIngrediente;

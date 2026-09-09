@@ -34,7 +34,9 @@ export function TarjetaReceta({
   const [minutosEditados, setMinutosEditados] = useState(String(tiempoMinutos));
   const [nombreEditado, setNombreEditado] = useState(nombre);
   const [porcionesEditadas, setPorcionesEditadas] = useState(String(porciones));
-  const [ingredientesEditados, setIngredientesEditados] = useState(ingredientes.join(", "));
+  const [ingredientesEditados, setIngredientesEditados] = useState(
+    ingredientes.map((ingrediente) => ingrediente.nombre).join(", "),
+  );
   const [pasosEditados, setPasosEditados] = useState(
     pasos.map((paso) => paso.descripcion).join("\n"),
   );
@@ -59,7 +61,9 @@ export function TarjetaReceta({
 
           <ul>
             {ingredientesVisibles.map((ingrediente) => (
-              <li key={ingrediente}>{ingrediente}</li>
+              <li key={ingrediente.id ?? `${ingrediente.nombre}-${ingredientes.indexOf(ingrediente)}`}>
+                {ingrediente.nombre}
+              </li>
             ))}
           </ul>
           {restantes > 0 && <p className="ingredientes-restantes">+{restantes} más</p>}
@@ -122,7 +126,15 @@ export function TarjetaReceta({
                       nombre: nombreEditado,
                       porciones: Number(porcionesEditadas),
                       tiempoMinutos: Number(minutosEditados),
-                      ingredientes: ingredientesEditados.split(",").map((i) => i.trim()),
+                      ingredientes: ingredientesEditados
+                        .split(",")
+                        .map((nombre) => ({
+                          nombre: nombre.trim(),
+                          cantidad: null,
+                          unidad: null,
+                          notas: null,
+                        }))
+                        .filter((ingrediente) => ingrediente.nombre),
                       pasos: pasosEditados
                         .split("\n")
                         .map((descripcion, indice) => ({

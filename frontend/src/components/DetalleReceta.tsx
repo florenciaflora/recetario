@@ -46,8 +46,13 @@ export function DetalleReceta() {
         </p>
         <h3>Ingredientes</h3>
         <ul>
-          {receta.ingredientes.map((ingrediente) => (
-            <li key={ingrediente}>{ingrediente}</li>
+          {receta.ingredientes.map((ingrediente, indice) => (
+            <li key={ingrediente.id ?? `${ingrediente.nombre}-${indice}`}>
+              {ingrediente.cantidad !== null && `${ingrediente.cantidad} `}
+              {ingrediente.unidad && `${ingrediente.unidad} `}
+              {ingrediente.nombre}
+              {ingrediente.notas && ` (${ingrediente.notas})`}
+            </li>
           ))}
         </ul>
         {receta.pasos && receta.pasos.length > 0 && (

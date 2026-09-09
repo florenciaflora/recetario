@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "echo \"No hay tests configurados\" && exit 0"
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",

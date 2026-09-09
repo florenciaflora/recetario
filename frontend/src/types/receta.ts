@@ -3,7 +3,7 @@ export interface Receta {
   nombre: string;
   porciones: number;
   tiempoMinutos: number;
-  ingredientes: string[];
+  ingredientes: Ingrediente[];
   esVegetariano: boolean;
   imagen: string | null;
   usuario_id: number | null;
@@ -12,12 +12,23 @@ export interface Receta {
   pasos?: PasoPreparacion[];
   categoria_id?: number | null;
   categoria?: Categoria | null;
+  dificultad?: "facil" | "media" | "dificil" | null;
+  tiempo_preparacion?: number | null;
+  tiempo_coccion?: number | null;
 }
 
 export interface Categoria {
   id: number;
   nombre: string;
   slug: string;
+}
+
+export interface Ingrediente {
+  id?: number;
+  nombre: string;
+  cantidad: number | null;
+  unidad: string | null;
+  notas: string | null;
 }
 
 export interface PasoPreparacion {
@@ -32,7 +43,10 @@ export interface DatosRecetaActualizar {
   nombre: string;
   porciones: number;
   tiempoMinutos: number;
-  ingredientes: string[];
+  ingredientes: Ingrediente[];
   pasos?: PasoPreparacion[];
   categoria_id?: number | null;
+  dificultad?: "facil" | "media" | "dificil";
+  tiempo_preparacion?: number | null;
+  tiempo_coccion?: number | null;
 }

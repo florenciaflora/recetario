@@ -10,6 +10,8 @@ const { verificarToken } = require("./auth");
 const app = express();
 const PUERTO = process.env.PORT || 3000;
 
+const DIFICULTADES_VALIDAS = new Set(["facil", "media", "dificil"]);
+
 app.use(cors());
 app.use(express.json());
 
@@ -22,10 +24,141 @@ function normalizarIngrediente(nombre) {
     .replace(/\s*[,;] \s*/g, ", ");
 }
 
+function normalizarSlug(texto) {
+  return String(texto || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizarDificultad(valor) {
+  if (valor === undefined || valor === null || valor === "") {
+    return null;
+  }
+
+  const texto = String(valor).trim().toLowerCase();
+  return DIFICULTADES_VALIDAS.has(texto) ? texto : null;
+}
+
+function normalizarBooleano(valor) {
+  if (valor === undefined || valor === null || valor === "") {
+    return null;
+  }
+
+  if (typeof valor === "boolean") return valor;
+
+  if (typeof valor === "number") {
+    if (valor === 0 || valor === 1) return Boolean(valor);
+    return null;
+  }
+
+  if (typeof valor === "string") {
+    const texto = valor.trim().toLowerCase();
+    if (["true", "1", "yes", "si"].includes(texto)) return true;
+    if (["false", "0", "no"].includes(texto)) return false;
+  }
+
+  return null;
+}
+
+function normalizarIngredientesEntrada(ingredientes) {
+  if (!Array.isArray(ingredientes)) {
+    return { error: "Los ingredientes deben ser una lista" };
+  }
+
+  const normalizados = [];
+
+  for (const ingrediente of ingredientes) {
+    const datos = typeof ingrediente === "string"
+      ? { nombre: ingrediente }
+      : ingrediente || {};
+    const nombre = normalizarIngrediente(datos.nombre);
+
+    if (!nombre) {
+      return { error: "Cada ingrediente debe tener un nombre" };
+    }
+
+    const cantidad = datos.cantidad === undefined || datos.cantidad === null || datos.cantidad === ""
+      ? null
+      : Number(datos.cantidad);
+
+    if (cantidad !== null && (!Number.isFinite(cantidad) || cantidad < 0)) {
+      return { error: `Cantidad inválida para ${nombre}` };
+    }
+
+    normalizados.push({
+      nombre,
+      cantidad,
+      unidad: String(datos.unidad || "").trim() || null,
+      notas: String(datos.notas || "").trim() || null,
+    });
+  }
+
+  return { ingredientes: normalizados };
+}
+
+function validarDatosReceta(datos, { parcial = false } = {}) {
+  const errores = [];
+
+  if (!parcial || datos.nombre !== undefined) {
+    if (typeof datos.nombre !== "string" || !datos.nombre.trim()) {
+      errores.push("El nombre es obligatorio");
+    }
+  }
+
+  for (const campo of ["porciones", "tiempoMinutos", "tiempo_preparacion", "tiempo_coccion"]) {
+    if (datos[campo] !== undefined && datos[campo] !== null) {
+      const valor = Number(datos[campo]);
+      if (!Number.isInteger(valor) || valor < 0) {
+        errores.push(`${campo} debe ser un entero mayor o igual a cero`);
+      }
+    }
+  }
+
+  if (!parcial || datos.ingredientes !== undefined) {
+    const resultado = normalizarIngredientesEntrada(datos.ingredientes);
+    if (resultado.error) errores.push(resultado.error);
+  }
+
+  if (datos.categoria_id !== undefined && datos.categoria_id !== null && datos.categoria_id !== "") {
+    const categoriaId = Number(datos.categoria_id);
+    if (!Number.isInteger(categoriaId) || categoriaId <= 0) {
+      errores.push("La categoría indicada no es válida");
+    }
+  }
+
+  if (datos.esVegetariano !== undefined) {
+    const valor = normalizarBooleano(datos.esVegetariano);
+    if (valor === null) {
+      errores.push("esVegetariano debe ser un valor booleano");
+    }
+  }
+
+  if (datos.pasos !== undefined) {
+    if (!Array.isArray(datos.pasos)) {
+      errores.push("Los pasos deben ser una lista");
+    } else if (datos.pasos.some((paso) => !paso || typeof paso.descripcion !== "string" || !paso.descripcion.trim())) {
+      errores.push("Cada paso debe tener una descripción");
+    }
+  }
+
+  if (datos.dificultad !== undefined) {
+    const dificultad = normalizarDificultad(datos.dificultad);
+    if (dificultad === null) {
+      errores.push("La dificultad debe ser facil, media o dificil");
+    }
+  }
+
+  return errores;
+}
+
 function obtenerIngredientesDeReceta(recetaId) {
   const filas = db
     .prepare(`
-      SELECT i.nombre
+      SELECT i.id, i.nombre, ri.cantidad, ri.unidad, ri.notas
       FROM receta_ingredientes ri
       INNER JOIN ingredientes i ON i.id = ri.ingrediente_id
       WHERE ri.receta_id = ?
@@ -34,7 +167,13 @@ function obtenerIngredientesDeReceta(recetaId) {
     .all(recetaId);
 
   if (filas.length > 0) {
-    return filas.map((fila) => fila.nombre);
+    return filas.map((fila) => ({
+      id: fila.id,
+      nombre: fila.nombre,
+      cantidad: fila.cantidad,
+      unidad: fila.unidad,
+      notas: fila.notas,
+    }));
   }
 
   const receta = db
@@ -47,27 +186,25 @@ function obtenerIngredientesDeReceta(recetaId) {
 
   return String(receta.ingredientes)
     .split(",")
-    .map((item) => normalizarIngrediente(item))
+    .map((item) => ({
+      nombre: normalizarIngrediente(item),
+      cantidad: null,
+      unidad: null,
+      notas: null,
+    }))
     .filter(Boolean);
 }
 
 function guardarIngredientesReceta(recetaId, ingredientes) {
   db.prepare("DELETE FROM receta_ingredientes WHERE receta_id = ?").run(recetaId);
 
-  const lista = Array.isArray(ingredientes) ? ingredientes : [];
+  const resultado = normalizarIngredientesEntrada(ingredientes);
+  if (resultado.error) throw new Error(resultado.error);
+  const lista = resultado.ingredientes;
 
   for (let indice = 0; indice < lista.length; indice++) {
-    const nombre = normalizarIngrediente(lista[indice]);
-
-    if (!nombre) continue;
-
-    const slug = String(nombre)
-      .trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+    const ingrediente = lista[indice];
+    const slug = normalizarSlug(ingrediente.nombre);
 
     if (!slug) continue;
 
@@ -82,7 +219,7 @@ function guardarIngredientesReceta(recetaId, ingredientes) {
     } else {
       const creado = db
         .prepare("INSERT INTO ingredientes (nombre, slug) VALUES (?, ?)")
-        .run(nombre, slug);
+        .run(ingrediente.nombre, slug);
 
       ingredienteId = creado.lastInsertRowid;
     }
@@ -91,13 +228,26 @@ function guardarIngredientesReceta(recetaId, ingredientes) {
       INSERT INTO receta_ingredientes (receta_id, ingrediente_id, orden)
       VALUES (?, ?, ?)
     `).run(recetaId, ingredienteId, indice + 1);
+
+    db.prepare(`
+      UPDATE receta_ingredientes
+      SET cantidad = ?, unidad = ?, notas = ?
+      WHERE receta_id = ? AND ingrediente_id = ? AND orden = ?
+    `).run(
+      ingrediente.cantidad,
+      ingrediente.unidad,
+      ingrediente.notas,
+      recetaId,
+      ingredienteId,
+      indice + 1,
+    );
   }
 
   const receta = db.prepare("SELECT ingredientes FROM recetas WHERE id = ?").get(recetaId);
 
   if (receta) {
     db.prepare("UPDATE recetas SET ingredientes = ? WHERE id = ?").run(
-      lista.map((item) => normalizarIngrediente(item)).filter(Boolean).join(","),
+      lista.map((item) => item.nombre).join(","),
       recetaId,
     );
   }
@@ -194,11 +344,43 @@ app.post("/recetas", verificarToken, (req, res) => {
     imagen,
     pasos,
     categoria_id: categoriaId,
+    dificultad = "media",
+    tiempo_preparacion: tiempoPreparacion,
+    tiempo_coccion: tiempoCoccion,
   } = req.body;
 
+  const esVegetarianoNormalizado = normalizarBooleano(esVegetariano);
+  const dificultadNormalizada = normalizarDificultad(dificultad) || "media";
+
+  const errores = validarDatosReceta({
+    nombre,
+    porciones,
+    tiempoMinutos,
+    ingredientes,
+    pasos,
+    dificultad: dificultadNormalizada,
+    esVegetariano,
+    categoria_id: categoriaId,
+    tiempo_preparacion: tiempoPreparacion,
+    tiempo_coccion: tiempoCoccion,
+  });
+
+  if (errores.length > 0) {
+    return res.status(400).json({ mensaje: "Datos de receta inválidos", errores });
+  }
+
+  if (categoriaId !== undefined && categoriaId !== null && categoriaId !== "") {
+    const categoria = db.prepare("SELECT id FROM categorias WHERE id = ?").get(categoriaId);
+    if (!categoria) {
+      return res.status(400).json({ mensaje: "La categoría indicada no existe" });
+    }
+  }
+
+  const esVegetarianoFinal = esVegetarianoNormalizado === null ? false : esVegetarianoNormalizado;
+
   const insertar = db.prepare(`
-    INSERT INTO recetas (nombre, porciones, tiempoMinutos, ingredientes, esVegetariano, imagen, usuario_id, categoria_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO recetas (nombre, porciones, tiempoMinutos, ingredientes, esVegetariano, imagen, usuario_id, categoria_id, dificultad, tiempo_preparacion, tiempo_coccion)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const resultado = insertar.run(
@@ -206,14 +388,19 @@ app.post("/recetas", verificarToken, (req, res) => {
     porciones,
     tiempoMinutos,
     (Array.isArray(ingredientes) ? ingredientes : []).join(","),
-    esVegetariano ? 1 : 0,
+    esVegetarianoFinal ? 1 : 0,
     imagen || null,
     req.usuario.id,
     categoriaId || null,
+    dificultadNormalizada,
+    tiempoPreparacion ?? null,
+    tiempoCoccion ?? null,
   );
 
-  guardarIngredientesReceta(resultado.lastInsertRowid, ingredientes);
-  guardarPasosReceta(resultado.lastInsertRowid, pasos);
+  db.transaction(() => {
+    guardarIngredientesReceta(resultado.lastInsertRowid, ingredientes);
+    guardarPasosReceta(resultado.lastInsertRowid, pasos);
+  })();
 
   const nuevaReceta = db
     .prepare("SELECT * FROM recetas WHERE id = ?")
@@ -223,7 +410,18 @@ app.post("/recetas", verificarToken, (req, res) => {
 });
 
 app.put("/recetas/:id", verificarToken, (req, res) => {
-  const { nombre, porciones, tiempoMinutos, ingredientes, pasos, categoria_id: categoriaId } = req.body;
+  const {
+    nombre,
+    porciones,
+    tiempoMinutos,
+    ingredientes,
+    pasos,
+    categoria_id: categoriaId,
+    dificultad,
+    esVegetariano,
+    tiempo_preparacion: tiempoPreparacion,
+    tiempo_coccion: tiempoCoccion,
+  } = req.body;
 
   const receta = db.prepare("SELECT * FROM recetas WHERE id = ?").get(req.params.id);
 
@@ -235,25 +433,73 @@ app.put("/recetas/:id", verificarToken, (req, res) => {
     return res.status(403).json({ mensaje: "No podés editar una receta que no creaste" });
   }
 
-  guardarIngredientesReceta(req.params.id, ingredientes);
-  guardarPasosReceta(req.params.id, pasos);
+  const errores = validarDatosReceta({
+    ...req.body,
+    categoria_id: categoriaId,
+    dificultad: dificultad !== undefined ? normalizarDificultad(dificultad) ?? dificultad : dificultad,
+    esVegetariano: esVegetariano !== undefined ? normalizarBooleano(esVegetariano) : esVegetariano,
+  }, { parcial: true });
 
+  if (errores.length > 0) {
+    return res.status(400).json({ mensaje: "Datos de receta inválidos", errores });
+  }
+
+  if (categoriaId !== undefined && categoriaId !== null && categoriaId !== "") {
+    const categoria = db.prepare("SELECT id FROM categorias WHERE id = ?").get(categoriaId);
+    if (!categoria) {
+      return res.status(400).json({ mensaje: "La categoría indicada no existe" });
+    }
+  }
+
+  const esVegetarianoNormalizado = esVegetariano === undefined ? undefined : normalizarBooleano(esVegetariano);
+  if (esVegetariano !== undefined && esVegetarianoNormalizado === null) {
+    return res.status(400).json({ mensaje: "esVegetariano debe ser un valor booleano" });
+  }
+
+  const ingredientesActualizados = ingredientes === undefined ? undefined : ingredientes;
+  const pasosActualizados = pasos === undefined ? undefined : pasos;
   const datosActualizacion = [
-    nombre,
-    porciones,
-    tiempoMinutos,
-    Array.isArray(ingredientes) ? ingredientes.map((item) => normalizarIngrediente(item)).filter(Boolean).join(",") : "",
+    nombre === undefined ? receta.nombre : nombre,
+    porciones === undefined ? receta.porciones : porciones,
+    tiempoMinutos === undefined ? receta.tiempoMinutos : tiempoMinutos,
+    ingredientesActualizados === undefined ? receta.ingredientes : ingredientesActualizados.map((item) =>
+      typeof item === "string" ? normalizarIngrediente(item) : normalizarIngrediente(item.nombre),
+    ).filter(Boolean).join(","),
   ];
 
-  if (categoriaId === undefined) {
-    db.prepare(
-      "UPDATE recetas SET nombre = ?, porciones = ?, tiempoMinutos = ?, ingredientes = ? WHERE id = ?",
-    ).run(...datosActualizacion, req.params.id);
-  } else {
-    db.prepare(
-      "UPDATE recetas SET nombre = ?, porciones = ?, tiempoMinutos = ?, ingredientes = ?, categoria_id = ? WHERE id = ?",
-    ).run(...datosActualizacion, categoriaId || null, req.params.id);
+  const campos = [
+    "nombre = ?",
+    "porciones = ?",
+    "tiempoMinutos = ?",
+    "ingredientes = ?",
+  ];
+  const valores = [...datosActualizacion];
+
+  for (const [campo, valor] of [
+    ["categoria_id", categoriaId],
+    ["dificultad", dificultad !== undefined ? normalizarDificultad(dificultad) ?? dificultad : undefined],
+    ["tiempo_preparacion", tiempoPreparacion],
+    ["tiempo_coccion", tiempoCoccion],
+    ["esVegetariano", esVegetarianoNormalizado],
+  ]) {
+    if (valor !== undefined) {
+      campos.push(`${campo} = ?`);
+      valores.push(valor === "" ? null : valor);
+    }
   }
+
+  valores.push(req.params.id);
+  db.transaction(() => {
+    if (ingredientesActualizados !== undefined) {
+      guardarIngredientesReceta(req.params.id, ingredientesActualizados);
+    }
+
+    if (pasosActualizados !== undefined) {
+      guardarPasosReceta(req.params.id, pasosActualizados);
+    }
+
+    db.prepare(`UPDATE recetas SET ${campos.join(", ")} WHERE id = ?`).run(...valores);
+  })();
 
   const recetaActualizada = db.prepare("SELECT * FROM recetas WHERE id = ?").get(req.params.id);
   res.json(convertirFila(recetaActualizada));
