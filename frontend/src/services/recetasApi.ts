@@ -17,7 +17,7 @@ export const recetasApi = {
   listarRecetas: () => fetchJson<Receta[]>("/recetas"),
   listarCategorias: () => fetchJson<Categoria[]>("/categorias"),
   obtenerReceta: (id: number | string) => fetchJson<Receta>(`/recetas/${id}`),
-  crearReceta: (receta: Omit<Receta, "id" | "usuario_id" | "acompanamiento" | "notas">, token: string | null) =>
+  crearReceta: (receta: DatosRecetaActualizar, token: string | null) =>
     fetchJson<Receta>("/recetas", {
       method: "POST",
       headers: {

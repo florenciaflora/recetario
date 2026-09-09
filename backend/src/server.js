@@ -326,7 +326,7 @@ app.get("/recetas/:id/solicitudes", verificarToken, (req, res) => {
     return res.status(404).json({ mensaje: "Receta no encontrada" });
   }
 
-  if (receta.usuario_id !== req.usuario.id) {
+  if (receta.usuario_id !== req.usuario.id && req.usuario.rol !== "admin") {
     return res.status(403).json({ mensaje: "Solo el dueño puede ver las solicitudes" });
   }
 
@@ -337,6 +337,7 @@ app.get("/recetas/:id/solicitudes", verificarToken, (req, res) => {
 app.post("/recetas", verificarToken, (req, res) => {
   const {
     nombre,
+    descripcion,
     porciones,
     tiempoMinutos,
     ingredientes,
@@ -350,7 +351,7 @@ app.post("/recetas", verificarToken, (req, res) => {
   } = req.body;
 
   const esVegetarianoNormalizado = normalizarBooleano(esVegetariano);
-  const dificultadNormalizada = normalizarDificultad(dificultad) || "media";
+  const dificultadNormalizada = normalizarDificultad(dificultad);
 
   const errores = validarDatosReceta({
     nombre,
@@ -358,7 +359,7 @@ app.post("/recetas", verificarToken, (req, res) => {
     tiempoMinutos,
     ingredientes,
     pasos,
-    dificultad: dificultadNormalizada,
+    dificultad: dificultad === undefined ? "media" : dificultad,
     esVegetariano,
     categoria_id: categoriaId,
     tiempo_preparacion: tiempoPreparacion,
@@ -379,20 +380,22 @@ app.post("/recetas", verificarToken, (req, res) => {
   const esVegetarianoFinal = esVegetarianoNormalizado === null ? false : esVegetarianoNormalizado;
 
   const insertar = db.prepare(`
-    INSERT INTO recetas (nombre, porciones, tiempoMinutos, ingredientes, esVegetariano, imagen, usuario_id, categoria_id, dificultad, tiempo_preparacion, tiempo_coccion)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO recetas (nombre, descripcion, porciones, tiempoMinutos, ingredientes, esVegetariano, imagen, imagen_principal, usuario_id, categoria_id, dificultad, tiempo_preparacion, tiempo_coccion)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const resultado = insertar.run(
     nombre,
+    descripcion || null,
     porciones,
     tiempoMinutos,
     (Array.isArray(ingredientes) ? ingredientes : []).join(","),
     esVegetarianoFinal ? 1 : 0,
     imagen || null,
+    imagen || null,
     req.usuario.id,
     categoriaId || null,
-    dificultadNormalizada,
+    dificultadNormalizada || "media",
     tiempoPreparacion ?? null,
     tiempoCoccion ?? null,
   );
@@ -412,6 +415,7 @@ app.post("/recetas", verificarToken, (req, res) => {
 app.put("/recetas/:id", verificarToken, (req, res) => {
   const {
     nombre,
+    descripcion,
     porciones,
     tiempoMinutos,
     ingredientes,
@@ -429,7 +433,7 @@ app.put("/recetas/:id", verificarToken, (req, res) => {
     return res.status(404).json({ mensaje: "Receta no encontrada" });
   }
 
-  if (receta.usuario_id !== req.usuario.id) {
+  if (receta.usuario_id !== req.usuario.id && req.usuario.rol !== "admin") {
     return res.status(403).json({ mensaje: "No podés editar una receta que no creaste" });
   }
 
@@ -462,18 +466,38 @@ app.put("/recetas/:id", verificarToken, (req, res) => {
     nombre === undefined ? receta.nombre : nombre,
     porciones === undefined ? receta.porciones : porciones,
     tiempoMinutos === undefined ? receta.tiempoMinutos : tiempoMinutos,
-    ingredientesActualizados === undefined ? receta.ingredientes : ingredientesActualizados.map((item) =>
-      typeof item === "string" ? normalizarIngrediente(item) : normalizarIngrediente(item.nombre),
-    ).filter(Boolean).join(","),
+    ingredientesActualizados === undefined
+      ? receta.ingredientes
+      : ingredientesActualizados.map((item) =>
+        typeof item === "string" ? normalizarIngrediente(item) : normalizarIngrediente(item.nombre),
+      ).filter(Boolean).join(","),
   ];
+
+  if (ingredientesActualizados === undefined && Array.isArray(receta.ingredientes)) {
+    datosActualizacion[3] = receta.ingredientes
+      .map((item) => typeof item === "string" ? item : item.nombre)
+      .filter(Boolean)
+      .join(",");
+  }
 
   const campos = [
     "nombre = ?",
+    "descripcion = ?",
     "porciones = ?",
     "tiempoMinutos = ?",
+    "imagen = ?",
+    "imagen_principal = ?",
     "ingredientes = ?",
   ];
-  const valores = [...datosActualizacion];
+  const valores = [
+    datosActualizacion[0],
+    descripcion === undefined ? receta.descripcion : descripcion || null,
+    datosActualizacion[1],
+    datosActualizacion[2],
+    req.body.imagen === undefined ? receta.imagen : req.body.imagen || null,
+    req.body.imagen === undefined ? receta.imagen_principal : req.body.imagen || null,
+    datosActualizacion[3],
+  ];
 
   for (const [campo, valor] of [
     ["categoria_id", categoriaId],
@@ -512,7 +536,7 @@ app.delete("/recetas/:id", verificarToken, (req, res) => {
     return res.status(404).json({ mensaje: "Receta no encontrada" });
   }
 
-  if (receta.usuario_id !== req.usuario.id) {
+  if (receta.usuario_id !== req.usuario.id && req.usuario.rol !== "admin") {
     return res.status(403).json({ mensaje: "No podés borrar una receta que no creaste" });
   }
 
@@ -574,7 +598,7 @@ app.post("/login", async (req, res) => {
   }
 
   const token = jwt.sign(
-    { id: usuario.id, email: usuario.email },
+    { id: usuario.id, email: usuario.email, rol: usuario.rol },
     process.env.JWT_SECRET,
     { expiresIn: "24h" },
   );

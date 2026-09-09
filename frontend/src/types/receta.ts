@@ -1,11 +1,13 @@
 export interface Receta {
   id: number;
   nombre: string;
+  descripcion?: string | null;
   porciones: number;
   tiempoMinutos: number;
   ingredientes: Ingrediente[];
   esVegetariano: boolean;
   imagen: string | null;
+  imagen_principal?: string | null;
   usuario_id: number | null;
   acompanamiento?: string | null;
   notas?: string | null;
@@ -46,6 +48,9 @@ export interface DatosRecetaActualizar {
   ingredientes: Ingrediente[];
   pasos?: PasoPreparacion[];
   categoria_id?: number | null;
+  descripcion?: string | null;
+  imagen?: string | null;
+  esVegetariano?: boolean;
   dificultad?: "facil" | "media" | "dificil";
   tiempo_preparacion?: number | null;
   tiempo_coccion?: number | null;

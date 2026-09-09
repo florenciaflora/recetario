@@ -156,9 +156,16 @@ createTableIfMissing(`
   CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
-    contrasena TEXT NOT NULL
+    contrasena TEXT NOT NULL,
+    rol TEXT NOT NULL DEFAULT 'editor' CHECK (rol IN ('editor', 'admin'))
   )
 `);
+
+if (!columnExists("usuarios", "rol")) {
+  db.exec(`ALTER TABLE usuarios ADD COLUMN rol TEXT NOT NULL DEFAULT 'editor'`);
+}
+
+db.prepare("UPDATE usuarios SET rol = 'admin' WHERE id = 1 AND rol = 'editor'").run();
 
 createTableIfMissing(`
   CREATE TABLE IF NOT EXISTS solicitudes (

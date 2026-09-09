@@ -77,9 +77,13 @@ test("POST /recetas crea receta con ingredientes y pasos estructurados", async (
       },
       body: JSON.stringify({
         nombre: "Tortilla de papa",
+        descripcion: "Receta de prueba completa",
         porciones: 2,
         tiempoMinutos: 25,
         dificultad: "facil",
+        tiempo_preparacion: 10,
+        tiempo_coccion: 15,
+        imagen: "https://example.com/tortilla.jpg",
         ingredientes: [
           { nombre: "Papa", cantidad: 2, unidad: "unidad", notas: "grandes" },
           { nombre: "Huevo", cantidad: 3, unidad: "unidad" },
@@ -97,17 +101,93 @@ test("POST /recetas crea receta con ingredientes y pasos estructurados", async (
     assert.equal(respuesta.status, 201, "Debe crear la receta correctamente");
     const payload = await respuesta.json();
     assert.equal(payload.nombre, "Tortilla de papa");
+    assert.equal(payload.descripcion, "Receta de prueba completa");
     assert.equal(payload.ingredientes.length, 2, "Debe guardar 2 ingredientes");
+    assert.equal(payload.ingredientes[0].cantidad, 2);
+    assert.equal(payload.ingredientes[0].unidad, "unidad");
+    assert.equal(payload.ingredientes[0].notas, "grandes");
     assert.equal(payload.pasos.length, 2, "Debe guardar 2 pasos");
     assert.equal(payload.dificultad, "facil", "Debe guardar la dificultad");
     assert.equal(payload.tiempo_preparacion, 10, "Debe guardar el tiempo de preparación");
     assert.equal(payload.tiempo_coccion, 15, "Debe guardar el tiempo de cocción");
+
+    const recetaId = payload.id;
+    const editada = await fetch(`${baseUrl}/recetas/${recetaId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        nombre: "Tortilla editada",
+        descripcion: "Descripción actualizada",
+        porciones: 4,
+        tiempoMinutos: 30,
+        imagen: "https://example.com/tortilla-editada.jpg",
+        ingredientes: [
+          { nombre: "Huevo", cantidad: 4, unidad: "unidad", notas: null },
+        ],
+        pasos: [
+          { orden: 1, titulo: "Cocinar", descripcion: "Cocinar la mezcla", imagen: null },
+        ],
+        categoria_id: null,
+        dificultad: "media",
+        tiempo_preparacion: 5,
+        tiempo_coccion: 25,
+      }),
+    });
+
+    assert.equal(editada.status, 200, "Debe editar la receta completa");
+    const editadaJson = await editada.json();
+    assert.equal(editadaJson.nombre, "Tortilla editada");
+    assert.equal(editadaJson.ingredientes.length, 1);
+    assert.equal(editadaJson.pasos.length, 1);
+    assert.equal(editadaJson.tiempo_coccion, 25);
+
+    const borrada = await fetch(`${baseUrl}/recetas/${recetaId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    assert.equal(borrada.status, 200, "Debe eliminar la receta");
+
+    const recuperada = await fetch(`${baseUrl}/recetas/${recetaId}`);
+    assert.equal(recuperada.status, 404, "La receta eliminada no debe recuperarse");
   } finally {
     const usuario = db.prepare("SELECT id FROM usuarios WHERE email = ?").get(email);
     if (usuario) {
       db.prepare("DELETE FROM recetas WHERE usuario_id = ?").run(usuario.id);
       db.prepare("DELETE FROM usuarios WHERE id = ?").run(usuario.id);
     }
+    await new Promise((resolve) => servidor.close(resolve));
+  }
+});
+
+test("POST /recetas rechaza dificultad desconocida", async () => {
+  const { servidor, baseUrl } = await iniciarServidor();
+  const email = `qa-difficulty-${Date.now()}@example.com`;
+  const token = await crearUsuarioYToken(baseUrl, email);
+
+  try {
+    const respuesta = await fetch(`${baseUrl}/recetas`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        nombre: "Receta inválida",
+        porciones: 2,
+        tiempoMinutos: 10,
+        dificultad: "imposible",
+        ingredientes: [],
+      }),
+    });
+
+    assert.equal(respuesta.status, 400);
+  } finally {
+    const usuario = db.prepare("SELECT id FROM usuarios WHERE email = ?").get(email);
+    if (usuario) db.prepare("DELETE FROM usuarios WHERE id = ?").run(usuario.id);
     await new Promise((resolve) => servidor.close(resolve));
   }
 });

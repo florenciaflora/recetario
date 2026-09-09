@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { jwtDecode } from "jwt-decode";
 import { Link, Route, Routes } from "react-router-dom";
 import { DetalleReceta } from "./components/DetalleReceta";
+import { EditorReceta } from "./components/EditorReceta";
 import { TarjetaReceta } from "./components/TarjetaReceta";
 import { recetasApi } from "./services/recetasApi";
 import type { Categoria, DatosRecetaActualizar, Receta } from "./types/receta";
@@ -10,13 +11,6 @@ function App() {
   const [recetas, setRecetas] = useState<Receta[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [busqueda, setBusqueda] = useState("");
-  const [nuevoNombre, setNuevoNombre] = useState("");
-  const [nuevoTiempo, setNuevoTiempo] = useState("");
-  const [nuevasPorciones, setNuevasPorciones] = useState("");
-  const [nuevosIngredientes, setNuevosIngredientes] = useState("");
-  const [nuevosPasos, setNuevosPasos] = useState("");
-  const [nuevaImagen, setNuevaImagen] = useState("");
-  const [nuevoVegetariano, setNuevoVegetariano] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [emailLogin, setEmailLogin] = useState("");
   const [contrasenaLogin, setContrasenaLogin] = useState("");
@@ -24,9 +18,10 @@ function App() {
   const [mostrarLogin, setMostrarLogin] = useState(false);
   const [filtroActivo, setFiltroActivo] = useState<"todas" | "vegetariano" | "rapido">("todas");
   const [categoriaActiva, setCategoriaActiva] = useState("");
-  const [nuevaCategoria, setNuevaCategoria] = useState("");
+  const [editorAbierto, setEditorAbierto] = useState(false);
+  const [recetaEditada, setRecetaEditada] = useState<Receta | null>(null);
 
-  const usuarioActual = token ? jwtDecode<{ id: number; email: string }>(token) : null;
+  const usuarioActual = token ? jwtDecode<{ id: number; email: string; rol?: string }>(token) : null;
 
   useEffect(() => {
     let activo = true;
@@ -79,48 +74,6 @@ function App() {
     localStorage.removeItem("token");
   };
 
-  const agregarReceta = async (evento: FormEvent<HTMLFormElement>) => {
-    evento.preventDefault();
-
-    const recetaNueva = {
-      nombre: nuevoNombre,
-      tiempoMinutos: Number(nuevoTiempo),
-      porciones: Number(nuevasPorciones),
-      ingredientes: nuevosIngredientes
-        .split(",")
-        .map((nombre) => ({ nombre: nombre.trim(), cantidad: null, unidad: null, notas: null }))
-        .filter((ingrediente) => ingrediente.nombre),
-      pasos: nuevosPasos
-        .split("\n")
-        .map((descripcion, indice) => ({
-          orden: indice + 1,
-          titulo: null,
-          descripcion: descripcion.trim(),
-          imagen: null,
-        }))
-        .filter((paso) => paso.descripcion),
-      categoria_id: nuevaCategoria ? Number(nuevaCategoria) : null,
-      esVegetariano: nuevoVegetariano,
-      imagen: nuevaImagen || null,
-    };
-
-    try {
-      const recetaCreada = await recetasApi.crearReceta(recetaNueva, token);
-      setRecetas((actual) => [...actual, recetaCreada]);
-      setNuevoNombre("");
-      setNuevoTiempo("");
-      setNuevasPorciones("");
-      setNuevosIngredientes("");
-      setNuevosPasos("");
-      setNuevaCategoria("");
-      setNuevaImagen("");
-      setNuevoVegetariano(false);
-    } catch (error) {
-      console.error(error);
-      alert("No se pudo crear la receta.");
-    }
-  };
-
   const recetasFiltradas = recetas
     .filter((receta) => {
       const textoBusqueda = busqueda.toLowerCase().trim();
@@ -162,10 +115,23 @@ function App() {
     try {
       const recetaActualizada = await recetasApi.actualizarReceta(id, datos, token);
       setRecetas((actual) => actual.map((receta) => (receta.id === id ? recetaActualizada : receta)));
+      setEditorAbierto(false);
+      setRecetaEditada(null);
     } catch (error) {
       console.error(error);
       alert("No se pudo actualizar la receta.");
     }
+  };
+
+  const guardarDesdeEditor = async (datos: DatosRecetaActualizar) => {
+    if (recetaEditada) {
+      await actualizarReceta(recetaEditada.id, datos);
+      return;
+    }
+
+    const recetaCreada = await recetasApi.crearReceta(datos, token);
+    setRecetas((actual) => [...actual, recetaCreada]);
+    setEditorAbierto(false);
   };
 
   return (
@@ -261,68 +227,10 @@ function App() {
               </select>
 
               {token && (
-                <form className="formulario" onSubmit={agregarReceta}>
-                  <input
-                    type="text"
-                    placeholder="Nombre de la receta"
-                    value={nuevoNombre}
-                    onChange={(evento) => setNuevoNombre(evento.target.value)}
-                  />
-                  <input
-                    type="number"
-                    placeholder="Minutos"
-                    value={nuevoTiempo}
-                    onChange={(evento) => setNuevoTiempo(evento.target.value)}
-                  />
-                  <input
-                    type="number"
-                    placeholder="Porciones"
-                    value={nuevasPorciones}
-                    onChange={(evento) => setNuevasPorciones(evento.target.value)}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Ej: papas, sal, aceite"
-                    value={nuevosIngredientes}
-                    onChange={(evento) => setNuevosIngredientes(evento.target.value)}
-                  />
-                  <textarea
-                    placeholder="Pasos de preparación, uno por línea"
-                    value={nuevosPasos}
-                    onChange={(evento) => setNuevosPasos(evento.target.value)}
-                    rows={4}
-                  />
-                  <select
-                    value={nuevaCategoria}
-                    onChange={(evento) => setNuevaCategoria(evento.target.value)}
-                    aria-label="Categoría de la receta"
-                  >
-                    <option value="">Sin categoría</option>
-                    {categorias
-                      .filter((categoria) => categoria.slug !== "sin-categoria")
-                      .map((categoria) => (
-                        <option key={categoria.id} value={categoria.id}>
-                          {categoria.nombre}
-                        </option>
-                      ))}
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="URL de la imagen"
-                    value={nuevaImagen}
-                    onChange={(evento) => setNuevaImagen(evento.target.value)}
-                  />
-                  <label style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <input
-                      type="checkbox"
-                      checked={nuevoVegetariano}
-                      onChange={(evento) => setNuevoVegetariano(evento.target.checked)}
-                    />
-                    Vegetariano
-                  </label>
-
-                  <button type="submit">Agregar receta</button>
-                </form>
+                <>
+                  {!editorAbierto && <button className="boton-nueva-receta" onClick={() => { setRecetaEditada(null); setEditorAbierto(true); }}>Nueva receta</button>}
+                  {editorAbierto && <EditorReceta key={recetaEditada?.id ?? "nuevo"} receta={recetaEditada} categorias={categorias} onGuardar={guardarDesdeEditor} onCancelar={() => { setEditorAbierto(false); setRecetaEditada(null); }} />}
+                </>
               )}
 
               {cargando ? (
@@ -358,14 +266,14 @@ function App() {
                       imagen={receta.imagen}
                       usuario_id={receta.usuario_id}
                       pasos={receta.pasos}
-                      categorias={categorias}
                       acompanamiento={receta.acompanamiento}
                       notas={receta.notas}
                       onBorrar={borrarReceta}
-                      onActualizar={actualizarReceta}
+                      onEditar={(recetaSeleccionada) => { setRecetaEditada(recetaSeleccionada); setEditorAbierto(true); }}
                       onSolicitarEliminacion={solicitarEliminacion}
                       token={token}
                       idUsuarioActual={usuarioActual ? usuarioActual.id : null}
+                      puedeAdministrar={usuarioActual?.rol === "admin"}
                     />
                   ))}
                 </div>
