@@ -11,9 +11,54 @@ const app = express();
 const PUERTO = process.env.PORT || 3000;
 
 const DIFICULTADES_VALIDAS = new Set(["facil", "media", "dificil"]);
+const ventanaRateLimitMs = 60 * 1000;
+const maximosPorVentana = 10;
+const intentosAutenticacion = new Map();
 
-app.use(cors());
+const origenesPermitidos = (process.env.FRONTEND_URL || "http://localhost:5173,http://localhost:4173")
+  .split(",")
+  .map((origen) => origen.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origen, callback) {
+    if (!origen || origenesPermitidos.includes(origen)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error("Origen no permitido"));
+  },
+}));
 app.use(express.json());
+
+function limitarAutenticacion(req, res, next) {
+  const ahora = Date.now();
+  const ip = req.ip || req.socket.remoteAddress || "desconocida";
+  const intentos = (intentosAutenticacion.get(ip) || []).filter(
+    (marcaTiempo) => ahora - marcaTiempo < ventanaRateLimitMs,
+  );
+
+  if (intentos.length >= maximosPorVentana) {
+    return res.status(429).json({ mensaje: "Demasiados intentos. Probá nuevamente en un minuto." });
+  }
+
+  intentos.push(ahora);
+  intentosAutenticacion.set(ip, intentos);
+  return next();
+}
+
+function validarCredenciales(email, contrasena) {
+  if (typeof email !== "string" || !/^\S+@\S+\.\S+$/.test(email.trim())) {
+    return "El email no es válido";
+  }
+
+  if (typeof contrasena !== "string" || contrasena.length < 8) {
+    return "La contraseña debe tener al menos 8 caracteres";
+  }
+
+  return null;
+}
 
 function normalizarIngrediente(nombre) {
   return String(nombre || "")
@@ -565,8 +610,13 @@ app.post("/solicitudes", verificarToken, (req, res) => {
   res.status(201).json(nuevaSolicitud);
 });
 
-app.post("/registro", async (req, res) => {
+app.post("/registro", limitarAutenticacion, async (req, res) => {
   const { email, contrasena } = req.body;
+  const errorCredenciales = validarCredenciales(email, contrasena);
+
+  if (errorCredenciales) {
+    return res.status(400).json({ mensaje: errorCredenciales });
+  }
 
   try {
     const hash = await bcrypt.hash(contrasena, 10);
@@ -582,8 +632,13 @@ app.post("/registro", async (req, res) => {
   }
 });
 
-app.post("/login", async (req, res) => {
+app.post("/login", limitarAutenticacion, async (req, res) => {
   const { email, contrasena } = req.body;
+
+  const errorCredenciales = validarCredenciales(email, contrasena);
+  if (errorCredenciales) {
+    return res.status(400).json({ mensaje: errorCredenciales });
+  }
 
   const usuario = db.prepare("SELECT * FROM usuarios WHERE email = ?").get(email);
 
@@ -604,6 +659,15 @@ app.post("/login", async (req, res) => {
   );
 
   res.json({ mensaje: "Login exitoso", token });
+});
+
+app.use((error, req, res, next) => {
+  if (error.message === "Origen no permitido") {
+    return res.status(403).json({ mensaje: error.message });
+  }
+
+  console.error(error);
+  return res.status(500).json({ mensaje: "Error interno del servidor" });
 });
 
 if (require.main === module) {
