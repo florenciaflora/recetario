@@ -19,6 +19,7 @@ function App() {
   const [mostrarLogin, setMostrarLogin] = useState(false);
   const [filtroActivo, setFiltroActivo] = useState<"todas" | "vegetariano" | "rapido">("todas");
   const [categoriaActiva, setCategoriaActiva] = useState("");
+  const [orden, setOrden] = useState<"recientes" | "nombre" | "tiempoAsc" | "tiempoDesc">("recientes");
   const [editorAbierto, setEditorAbierto] = useState(false);
   const [recetaEditada, setRecetaEditada] = useState<Receta | null>(null);
 
@@ -92,6 +93,12 @@ function App() {
       if (filtroActivo === "vegetariano") return receta.esVegetariano;
       if (filtroActivo === "rapido") return receta.tiempoMinutos <= 30;
       return true;
+    })
+    .sort((a, b) => {
+      if (orden === "nombre") return a.nombre.localeCompare(b.nombre, "es");
+      if (orden === "tiempoAsc") return a.tiempoMinutos - b.tiempoMinutos;
+      if (orden === "tiempoDesc") return b.tiempoMinutos - a.tiempoMinutos;
+      return b.id - a.id;
     });
 
   const borrarReceta = async (id: number) => {
@@ -227,6 +234,18 @@ function App() {
                     {categoria.nombre}
                   </option>
                 ))}
+              </select>
+
+              <select
+                className="selector-categoria"
+                value={orden}
+                onChange={(evento) => setOrden(evento.target.value as typeof orden)}
+                aria-label="Ordenar recetas"
+              >
+                <option value="recientes">Más recientes</option>
+                <option value="nombre">Por nombre</option>
+                <option value="tiempoAsc">Menor tiempo</option>
+                <option value="tiempoDesc">Mayor tiempo</option>
               </select>
 
               {token && (

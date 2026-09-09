@@ -152,6 +152,10 @@ a {
   font-size: 13px;
 }
 
+.selector-categoria + .selector-categoria {
+  margin-top: -14px;
+}
+
 .chips-fila {
   display: flex;
   justify-content: center;
